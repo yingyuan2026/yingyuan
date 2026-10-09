@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>应援方案 Agent</title>
+<style>
+  :root{
+    --main:#ff7ab8;
+    --sub:#8ad7ff;
+    --bg:#080a11;
+    --panel:#111524;
+    --panel2:#171d30;
+    --line:#242c42;
+    --text:#eef1f8;
+    --muted:#858da6;
+    --ok:#4ade80;
+    --warn:#fbbf24;
+    --bad:#f87171;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--text);
+    -webkit-font-smoothing:antialiased;overflow:hidden;
+  }
+
+  .app{height:100vh;display:flex;flex-direction:column}
+
+  /* ---------- 顶栏 ---------- */
+  header{
+    display:flex;align-items:center;gap:12px;
+    padding:14px 20px;border-bottom:1px solid var(--line);
+    background:rgba(17,21,36,.72);backdrop-filter:blur(14px);
+    flex-shrink:0;z-index:10;
+  }
+  .logo{
+    width:30px;height:30px;border-radius:9px;flex-shrink:0;
+    background:linear-gradient(135deg,var(--main),var(--sub));
+    display:flex;align-items:center;justify-content:center;
+    font-size:15px;color:#0b0d14;font-weight:800;
+    box-shadow:0 0 20px -4px var(--main);
+  }
+  header h1{font-size:15px;font-weight:700;letter-spacing:.3px}
+  header .sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .status-pill{
+    display:flex;align-items:center;gap:6px;font-size:11.5px;
+    padding:5px 11px;border-radius:999px;
+    background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+  }
+  .status-pill .pulse{
+    width:6px;height:6px;border-radius:50%;background:var(--ok);
+    box-shadow:0 0 8px var(--ok);animation:pulse 1.8s infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .hdr-btn{
+    background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+    font-size:12px;padding:6px 12px;border-radius:9px;cursor:pointer;
+    font-family:inherit;transition:.16s;
+  }
+  .hdr-btn:hover{color:var(--text);border-color:var(--main)}
+
+  /* ---------- 主体三栏 ---------- */
+  .body{
+    flex:1;display:grid;grid-template-columns:264px 1fr 344px;
+    gap:0;overflow:hidden;
+  }
+  @media(max-width:1180px){
+    .body{grid-template-columns:1fr;grid-template-rows:auto 1fr auto;}
+    body{overflow:auto}
+    .app{height:auto;min-height:100vh}
+  }
+
+  /* ---------- 左：状态面板 ---------- */
+  .state-panel{
+    border-right:1px solid var(--line);padding:16px;
+    overflow-y:auto;background:rgba(17,21,36,.42);
+  }
+  .state-panel::-webkit-scrollbar{width:5px}
+  .state-panel::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .sec-title{
+    font-size:11px;color:var(--muted);letter-spacing:1px;font-weight:600;
+    margin-bottom:12px;display:flex;align-items:center;gap:7px;
+  }
+  .sec-title::before{
+    content:"";width:3px;height:11px;border-radius:2px;background:var(--main);
+  }
+  .slot{
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
+    padding:8px 10px;border-radius:9px;font-size:12.5px;
+    background:var(--panel2);border:1px solid transparent;margin-bottom:6px;
+    transition:.2s;
+  }
+  .slot.filled{border-color:rgba(74,222,128,.22)}
+  .slot .k{color:var(--muted);flex-shrink:0}
+  .slot .v{
+    font-weight:600;text-align:right;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;
+  }
+  .slot.filled .v{color:var(--text)}
+  .slot .v.empty{color:#4d5568;font-weight:400}
+
+  .swatch-row{display:flex;gap:6px;margin:10px 0 16px}
+  .swatch{
+    width:34px;height:34px;border-radius:10px;
+    border:1px solid rgba(255,255,255,.12);
+  }
+
+  .progress-wrap{margin:14px 0 18px}
+  .progress-bar{
+    height:6px;border-radius:4px;background:var(--panel2);
+    overflow:hidden;margin-bottom:7px;
+  }
+  .progress-fill{
+    height:100%;border-radius:4px;
+    background:linear-gradient(90deg,var(--main),var(--sub));
+    transition:width .5s cubic-bezier(.4,0,.2,1);
+  }
+  .progress-txt{font-size:11.5px;color:var(--muted)}
+  .progress-txt b{color:var(--main)}
+
+  .quick-btns{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+  .quick{
+    text-align:left;font-size:12.5px;padding:9px 12px;border-radius:9px;
+    background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+    cursor:pointer;font-family:inherit;transition:.16s;line-height:1.4;
+  }
+  .quick:hover{color:var(--text);border-color:var(--main);transform:translateX(2px)}
+
+  /* ---------- 中：对话 ---------- */
+  .chat{display:flex;flex-direction:column;overflow:hidden;min-height:0}
+  .stream{
+    flex:1;overflow-y:auto;padding:22px 26px 10px;
+    display:flex;flex-direction:column;gap:16px;
+  }
+  .stream::-webkit-scrollbar{width:6px}
+  .stream::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  @media(max-width:1180px){.stream{max-height:52vh}}
+
+  .msg{display:flex;gap:11px;animation:rise .34s cubic-bezier(.4,0,.2,1)}
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .msg .av{
+    width:29px;height:29px;border-radius:9px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:700;
+  }
+  .msg.agent .av{
+    background:linear-gradient(135deg,var(--main),var(--sub));color:#0b0d14;
+    box-shadow:0 0 16px -5px var(--main);
+  }
+  .msg.user .av{background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
+  .msg .bubble{flex:1;min-width:0}
+  .msg .who{
+    font-size:11px;color:var(--muted);margin-bottom:5px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .msg .who .badge{
+    font-size:10px;padding:1.5px 6px;border-radius:5px;
+    background:rgba(255,255,255,.06);color:var(--sub);
+  }
+  .msg .text{
+    font-size:13.5px;line-height:1.78;color:#d5dbe9;
+    word-break:break-word;
+  }
+  .msg.user .text{
+    background:var(--panel2);border:1px solid var(--line);
+    padding:10px 14px;border-radius:12px;display:inline-block;
+    max-width:100%;
+  }
+  .msg .text b{color:var(--text)}
+  .msg .text code{
+    background:rgba(255,255,255,.07);padding:1.5px 6px;border-radius:5px;
+    font-family:ui-monospace,monospace;font-size:12.5px;color:var(--sub);
+  }
+
+  /* 思考轨迹 */
+  .trace{
+    margin-top:9px;border:1px solid var(--line);border-radius:11px;
+    overflow:hidden;background:rgba(0,0,0,.22);
+  }
+  .trace-head{
+    padding:8px 12px;font-size:11.5px;color:var(--muted);
+    display:flex;align-items:center;gap:7px;cursor:pointer;
+    user-select:none;transition:.15s;
+  }
+  .trace-head:hover{color:var(--text)}
+  .trace-head .arrow{
+    margin-left:auto;transition:.22s;font-size:9px;color:var(--muted);
+  }
+  .trace.open .trace-head .arrow{transform:rotate(90deg)}
+  .trace-body{
+    max-height:0;overflow:hidden;transition:max-height .32s ease;
+    border-top:1px solid transparent;
+  }
+  .trace.open .trace-body{
+    max-height:640px;overflow-y:auto;border-top-color:var(--line);
+  }
+  .step{
+    display:flex;gap:9px;padding:8px 12px;font-size:12px;
+    line-height:1.65;border-bottom:1px solid rgba(255,255,255,.035);
+  }
+  .step:last-child{border-bottom:none}
+  .step .ic{flex-shrink:0;width:16px;text-align:center;font-size:11px}
+  .step .c{color:var(--muted);flex:1;word-break:break-word}
+  .step.think .c{color:#9aa3bb;font-style:italic}
+  .step.tool .c{color:var(--sub);font-family:ui-monospace,monospace;font-size:11.5px}
+  .step.obs .c{color:#a8b0c4}
+  .step.done .c{color:var(--ok)}
+  .step.err .c{color:var(--bad)}
+
+  /* 结果卡片 */
+  .result-card{
+    margin-top:10px;border:1px solid var(--line);border-radius:13px;
+    overflow:hidden;background:var(--panel);
+  }
+  .rc-head{
+    padding:10px 14px;background:rgba(255,255,255,.03);
+    border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:600;
+  }
+  .rc-head .dot{
+    width:7px;height:7px;border-radius:50%;background:var(--main);
+    box-shadow:0 0 9px var(--main);
+  }
+  .rc-body{padding:12px 14px}
+  .kv{
+    display:flex;justify-content:space-between;gap:10px;
+    font-size:12.5px;padding:6px 0;color:#b9c0d2;
+    border-bottom:1px solid rgba(255,255,255,.04);
+  }
+  .kv:last-child{border-bottom:none}
+  .kv .n{color:var(--muted)}
+  .kv .v{font-family:ui-monospace,monospace;color:var(--text);text-align:right}
+
+  .mini-bars{margin-top:8px}
+  .mb{display:flex;align-items:center;gap:9px;margin-bottom:8px;font-size:12px}
+  .mb .l{width:64px;color:var(--muted);flex-shrink:0}
+  .mb .t{flex:1;height:7px;border-radius:5px;background:rgba(255,255,255,.06);overflow:hidden}
+  .mb .f{height:100%;border-radius:5px;transition:width .6s ease}
+  .mb .v{width:70px;text-align:right;font-family:ui-monospace,monospace;color:#b9c0d2}
+
+  .risk-tag{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:11.5px;padding:4px 10px;border-radius:7px;font-weight:600;
+  }
+  .risk-tag.low{background:rgba(74,222,128,.13);color:var(--ok)}
+  .risk-tag.mid{background:rgba(251,191,36,.13);color:var(--warn)}
+  .risk-tag.high{background:rgba(248,113,113,.13);color:var(--bad)}
+
+  /* 输入区 */
+  .composer{
+    padding:14px 26px 20px;border-top:1px solid var(--line);
+    background:rgba(17,21,36,.6);backdrop-filter:blur(10px);flex-shrink:0;
+  }
+  .input-row{
+    display:flex;gap:10px;align-items:flex-end;
+    background:var(--panel2);border:1px solid var(--line);
+    border-radius:14px;padding:10px 12px;transition:.18s;
+  }
+  .input-row:focus-within{border-color:var(--main);box-shadow:0 0 0 3px rgba(255,255,255,.04)}
+  textarea{
+    flex:1;background:none;border:none;outline:none;resize:none;
+    color:var(--text);font-size:13.5px;font-family:inherit;line-height:1.6;
+    max-height:110px;min-height:22px;
+  }
+  textarea::placeholder{color:#5a6278}
+  .send-btn{
+    width:34px;height:34px;border-radius:10px;border:none;cursor:pointer;
+    background:linear-gradient(135deg,var(--main),var(--sub));
+    color:#0b0d14;font-size:15px;display:flex;align-items:center;
+    justify-content:center;flex-shrink:0;transition:.18s;font-weight:700;
+  }
+  .send-btn:hover{filter:brightness(1.1);transform:scale(1.04)}
+  .send-btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+  .composer-hint{
+    font-size:11px;color:#4f5669;margin-top:9px;text-align:center;
+  }
+
+  /* ---------- 右：预览 ---------- */
+  .preview-panel{
+    border-left:1px solid var(--line);padding:16px;
+    overflow-y:auto;background:rgba(17,21,36,.42);
+  }
+  .preview-panel::-webkit-scrollbar{width:5px}
+  .preview-panel::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .poster-frame{
+    border-radius:14px;overflow:hidden;border:1px solid var(--line);
+    background:#0a0d16;margin-bottom:12px;
+  }
+  .poster-frame canvas{width:100%;height:auto;display:block}
+  .tabs{display:flex;gap:7px;margin-bottom:11px}
+  .tab{
+    flex:1;text-align:center;padding:8px 4px;border-radius:9px;
+    font-size:12px;background:var(--panel2);border:1px solid var(--line);
+    color:var(--muted);cursor:pointer;transition:.16s;font-weight:600;
+  }
+  .tab:hover{color:var(--text)}
+  .tab.on{
+    background:rgba(255,255,255,.06);color:var(--text);
+    border-color:var(--main);box-shadow:0 0 14px -6px var(--main);
+  }
+  .act-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .act{
+    padding:10px;border-radius:10px;font-size:12.5px;cursor:pointer;
+    background:var(--panel2);border:1px solid var(--line);color:#b9c0d2;
+    font-family:inherit;transition:.16s;font-weight:600;
+  }
+  .act:hover{border-color:var(--main);color:var(--text)}
+  .act.primary{
+    background:linear-gradient(135deg,var(--main),var(--sub));
+    color:#0b0d14;border:none;
+  }
+  .act.primary:hover{filter:brightness(1.08)}
+  .act:disabled{opacity:.35;cursor:not-allowed}
+
+  .empty-preview{
+    text-align:center;color:#4f5669;font-size:12.5px;
+    padding:60px 20px;line-height:1.9;
+  }
+  .empty-preview .big{font-size:30px;margin-bottom:12px;opacity:.35}
+
+  /* toast */
+  .toast{
+    position:fixed;left:50%;bottom:34px;transform:translate(-50%,16px);
+    background:#fff;color:#111;padding:10px 22px;border-radius:999px;
+    font-size:13px;font-weight:600;opacity:0;pointer-events:none;
+    transition:.28s;z-index:200;box-shadow:0 12px 40px rgba(0,0,0,.55);
+  }
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+
+  .typing{display:inline-flex;gap:4px;padding:3px 0}
+  .typing i{
+    width:5px;height:5px;border-radius:50%;background:var(--muted);
+    animation:blink 1.3s infinite;
+  }
+  .typing i:nth-child(2){animation-delay:.18s}
+  .typing i:nth-child(3){animation-delay:.36s}
+  @keyframes blink{0%,60%,100%{opacity:.25}30%{opacity:1}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="logo">应</div>
+    <div>
+      <h1>应援方案 Agent</h1>
+      <div class="sub">对话式策划 · 自动生成海报 / 物料 / 预算 / 时间线 / 合规检查</div>
+    </div>
+    <div class="hdr-right">
+      <div class="status-pill"><span class="pulse"></span><span id="agent-status">待命中</span></div>
+      <button class="hdr-btn" id="btn-reset">重置</button>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- 左：状态 -->
+    <aside class="state-panel">
+      <div class="sec-title">项目状态</div>
+
+      <div class="progress-wrap">
+        <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+        <div class="progress-txt">已收集 <b id="prog-num">0</b> / 6 项关键信息</div>
+      </div>
+
+      <div class="slot" data-k="artist"><span class="k">艺人</span><span class="v empty">待填写</span></div>
+      <div class="slot" data-k="event"><span class="k">事件</span><span class="v empty">待填写</span></div>
+      <div class="slot" data-k="date"><span class="k">日期</span><span class="v empty">待填写</span></div>
+      <div class="slot" data-k="city"><span class="k">城市</span><span class="v empty">待填写</span></div>
+      <div class="slot" data-k="budget"><span class="k">预算</span><span class="v empty">待填写</span></div>
+      <div class="slot" data-k="people"><span class="k">人数</span><span class="v empty">待填写</span></div>
+
+      <div class="swatch-row">
+        <div class="swatch" id="sw-main" title="主应援色"></div>
+        <div class="swatch" id="sw-sub" title="辅色"></div>
+      </div>
+
+      <div class="sec-title">快捷指令</div>
+      <div class="quick-btns">
+        <button class="quick" data-q="帮我给星辰做生日应援，预算5000，上海">给星辰做生日应援，预算5000</button>
+        <button class="quick" data-q="改成粉色应援色">改成粉色应援色</button>
+        <button class="quick" data-q="预算改成8000">预算改成8000</button>
+        <button class="quick" data-q="加上地铁灯箱和咖啡店">加上地铁灯箱和咖啡店</button>
+        <button class="quick" data-q="开始生成方案">开始生成方案</button>
+        <button class="quick" data-q="导出方案">导出方案</button>
+      </div>
+    </aside>
+
+    <!-- 中：对话 -->
+    <main class="chat">
+      <div class="stream" id="stream"></div>
+      <div class="composer">
+        <div class="input-row">
+          <textarea id="input" rows="1" placeholder="例如：帮我给星辰做生日应援，粉色，预算5000，上海，加地铁灯箱"></textarea>
+          <button class="send-btn" id="btn-send">↑</button>
+        </div>
+        <div class="composer-hint">Enter 发送 · Shift+Enter 换行 · Agent 会自动补齐缺失信息</div>
+      </div>
+    </main>
+
+    <!-- 右：预览 -->
+    <aside class="preview-panel">
+      <div class="sec-title">方案预览</div>
+      <div id="preview-box">
+        <div class="empty-preview">
+          <div class="big">🖼</div>
+          生成方案后<br />这里会显示海报与操作按钮
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   0. 基础工具
+   ========================================================= */
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+function esc(s){
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+function money(n){ return '¥' + Math.round(n).toLocaleString('zh-CN'); }
+
+function hexToRgb(hex){
+  hex = String(hex).replace('#','');
+  if(hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  const n = parseInt(hex, 16);
+  return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+}
+function rgbToHex(r,g,b){
+  const f = v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0');
+  return '#' + f(r) + f(g) + f(b);
+}
+function mix(a,b,t){
+  const A = hexToRgb(a), B = hexToRgb(b);
+  return rgbToHex(A.r+(B.r-A.r)*t, A.g+(B.g-A.g)*t, A.b+(B.b-A.b)*t);
+}
+function shade(hex, amt){
+  return amt >= 0 ? mix(hex,'#ffffff',amt) : mix(hex,'#000000',-amt);
+}
+function rgba(hex,a){
+  const c = hexToRgb(hex);
+  return `rgba(${c.r},${c.g},${c.b},${a})`;
+}
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function wrapText(ctx, text, maxWidth){
+  const chars = [...String(text)];
+  const lines = []; let line = '';
+  for(const ch of chars){
+    const test = line + ch;
+    if(ctx.measureText(test).width > maxWidth && line){
+      lines.push(line); line = ch;
+    } else line = test;
+  }
+  if(line) lines.push(line);
+  return lines;
+}
+function drawSpaced(ctx, text, cx, y, spacing){
+  const chars = [...String(text)];
+  let total = 0;
+  chars.forEach(c => total += ctx.measureText(c).width + spacing);
+  total -= spacing;
+  let x = cx - total / 2;
+  const prev = ctx.textAlign;
+  ctx.textAlign = 'left';
+  chars.forEach(c => { ctx.fillText(c, x, y); x += ctx.measureText(c).width + spacing; });
+  ctx.textAlign = prev;
+}
+function toast(msg){
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('on'), 1800);
+}
+
+/* =========================================================
+   1. 知识库
+   ========================================================= */
+const COLOR_MAP = {
+  '粉':'#ff7ab8','粉色':'#ff7ab8','桃粉':'#ffa6c9','玫红':'#ff4d94','樱花粉':'#ffc2d8',
+  '蓝':'#5aa9ff','蓝色':'#5aa9ff','天蓝':'#8ad7ff','深蓝':'#2b4d9e','海军蓝':'#1f3a6e','克莱因蓝':'#002fa7',
+  '紫':'#a97bff','紫色':'#a97bff','薰衣草':'#c9a7ff','深紫':'#7b4fd6','香芋紫':'#d6b8ff',
+  '红':'#ff5a5a','红色':'#ff5a5a','正红':'#e63946','酒红':'#8b1e3f',
+  '绿':'#4ade80','绿色':'#4ade80','薄荷绿':'#6ee7b7','墨绿':'#1f4d3a',
+  '黄':'#ffd93d','黄色':'#ffd93d','柠檬黄':'#fff066','姜黄':'#e8a33d',
+  '橙':'#ff9f43','橙色':'#ff9f43','橘':'#ff9f43',
+  '白':'#f5f7fb','白色':'#f5f7fb',
+  '黑':'#1a1a1a','黑色':'#1a1a1a',
+  '金':'#ffd700','金色':'#ffd700',
+  '银':'#c0c0c0','银色':'#c0c0c0',
+  '青':'#4ecdc4','青色':'#4ecdc4','湖蓝':'#3ec6c6',
+  '灰':'#9aa3b2','灰色':'#9aa3b2',
+  '奶茶':'#d8b48c','香槟':'#f2e0c2'
+};
+
+const CITIES = ['北京','上海','广州','深圳','成都','杭州','重庆','武汉','西安','南京','长沙',
+  '天津','苏州','郑州','青岛','厦门','福州','昆明','合肥','宁波','济南','大连','沈阳',
+  '哈尔滨','南昌','贵阳','南宁','太原','石家庄','海口','三亚','兰州','银川','西宁',
+  '呼和浩特','乌鲁木齐','拉萨','香港','澳门','台北'];
+
+const LOCATIONS = ['线上','场馆周边','地铁灯箱','商圈大屏','公交站牌','咖啡店','快递柜','灯光秀','无人机'];
+
+const EVENTS = ['生日','出道周年','回归/打歌','演唱会','毕业/纪念','其他'];
+
+const MATERIAL_DB = {
+  '手幅':      { spec:'45×15cm',  price:8   },
+  '灯牌':      { spec:'30×30cm',  price:35  },
+  '横幅':      { spec:'200×80cm', price:60  },
+  '杯套':      { spec:'通用杯型',  price:12  },
+  '贴纸':      { spec:'5×5cm',    price:1.5 },
+  '易拉宝':    { spec:'60×160cm', price:120 },
+  '亚克力立牌': { spec:'15×15cm',  price:25  },
+  '应援扇':    { spec:'标准扇面',  price:6   },
+  '应援手环':  { spec:'均码',      price:3   }
+};
+
+const EVENT_COPY = {
+  '生日': {
+    label:'HAPPY BIRTHDAY',
+    titles:['{name} 生日应援','生日快乐 · {name}','为 {name} 点亮生日星光'],
+    slogans:['生日快乐，星河长明','愿你岁岁有今朝','光落在你身上，也落在我们眼里','这一岁的风，都为你温柔'],
+    blessings:['愿你所愿皆成真，所行化坦途。','愿你被世界温柔以待，被爱意包围。','新的一岁，继续闪闪发光。'],
+    tags:['#{name}生日应援#','#{name}生日快乐#','#为{name}点亮星光#']
+  },
+  '出道周年': {
+    label:'ANNIVERSARY',
+    titles:['{name} 出道周年应援','第 N 年 · 依然是你','与 {name} 共赴下一年'],
+    slogans:['时光不负，初心未改','谢谢你一直在，我们也一直在','从第一天到现在，每一步都算数','并肩走过的日子，都是星光'],
+    blessings:['愿前路坦荡，万事顺遂。','愿所有努力都被看见，所有热爱都有回响。','下一个周年，我们还在。'],
+    tags:['#{name}出道周年#','#与{name}共赴下一年#','#{name}周年应援#']
+  },
+  '回归/打歌': {
+    label:'COMEBACK',
+    titles:['{name} 回归应援','回归快乐 · {name}','为 {name} 应援打歌'],
+    slogans:['全力以赴，为你应援','这一次，也要被世界看见','音源冲榜，我们在一起','把最好的舞台，还给最好的你'],
+    blessings:['愿新歌大爆，成绩长虹。','愿每一次回归都被认真对待。','打歌顺利，冲榜顺利。'],
+    tags:['#{name}回归应援#','#{name}打歌应援#','#为{name}冲榜#']
+  },
+  '演唱会': {
+    label:'CONCERT',
+    titles:['{name} 演唱会应援','现场见 · {name}','为 {name} 点亮星海'],
+    slogans:['万人星海，只为你亮','现场见，不见不散','把应援色，铺满整个场馆','灯光亮起时，我们都在'],
+    blessings:['愿演出顺利，全场沸腾。','愿每一个音符都被听见。','愿这片应援色，成为你最亮的背景。'],
+    tags:['#{name}演唱会应援#','#{name}现场应援#','#为{name}点亮星海#']
+  },
+  '毕业/纪念': {
+    label:'MEMORIAL',
+    titles:['{name} 纪念应援','纪念日 · {name}','与 {name} 的纪念时刻'],
+    slogans:['把这一刻，好好收藏','值得被记住的日子','时间会走，我们不会散','所有相遇，都是礼物'],
+    blessings:['愿此去前程似锦，归来仍是少年。','愿所有美好都被妥善安放。','纪念日快乐。'],
+    tags:['#{name}纪念应援#','#{name}纪念日#','#与{name}的纪念时刻#']
+  },
+  '其他': {
+    label:'CHEERING FOR YOU',
+    titles:['{name} 应援企划','为 {name} 应援','{name} 应援计划'],
+    slogans:['为你应援，全力以赴','所有的热爱，都有回响','一起把应援做好','把心意，认真送到'],
+    blessings:['愿一切顺利。','愿这份心意被看见。','应援顺利，圆满收官。'],
+    tags:['#{name}应援#','#为{name}应援#']
+  }
+};
+
+const PLAN_META = [
+  { id:'A', name:'星环', tag:'均衡型',
+    desc:'物料与投放均衡配置，适合大多数生日与周年应援',
+    weights:{ design:0.10, material:0.35, promote:0.40, reserve:0.15 } },
+  { id:'B', name:'流光', tag:'重投放',
+    desc:'预算向线下大屏与灯箱倾斜，追求曝光最大化',
+    weights:{ design:0.08, material:0.22, promote:0.58, reserve:0.12 } },
+  { id:'C', name:'波纹', tag:'重物料',
+    desc:'物料数量拉满，适合现场分发与粉丝打卡',
+    weights:{ design:0.12, material:0.55, promote:0.22, reserve:0.11 } }
+];
+
+const LOCATION_ADVICE = {
+  '线上':     { d:'微博超话、小红书、抖音话题集中发布，统一话题标签，配合应援长图与打卡模板。', c:'低' },
+  '场馆周边': { d:'场馆外 300 米内设置易拉宝与横幅，安排 2-3 人分发手幅，注意场地管理方要求。', c:'中' },
+  '地铁灯箱': { d:'需提前 15-20 天向广告代理申请，提供设计稿审核，注意不得使用未授权肖像。', c:'高' },
+  '商圈大屏': { d:'LED 大屏按 15 秒 / 次计费，建议集中在事件当日与前 3 天投放，性价比最高。', c:'高' },
+  '公交站牌': { d:'候车亭灯箱价格低于地铁，覆盖周期长，适合预算有限但想要线下曝光的方案。', c:'高' },
+  '咖啡店':   { d:'联名杯套 + 店内立牌，需与门店单独沟通，通常 1-2 周可落地，成本较低。', c:'低' },
+  '快递柜':   { d:'社区快递柜贴纸覆盖广、单价低，适合铺量，注意撕除时间与物业沟通。', c:'低' },
+  '灯光秀':   { d:'楼体灯光秀需提前 1 个月预约，价格高，建议后援会联合或品牌合作分摊。', c:'高' },
+  '无人机':   { d:'无人机编队表演需空域审批，必须由持证公司执行，务必提前 30 天报批。', c:'高' }
+};
+
+const BANNED_WORDS = ['最','第一','顶级','绝对','唯一','国家级','史上','全网','极致','冠军','首个','NO.1','no.1'];
+
+const STYLES = ['甜美高级','酷飒暗黑','清新简约','梦幻星光','复古胶片'];
+
+/* =========================================================
+   2. 项目状态（Agent 的记忆）
+   ========================================================= */
+const State = {
+  artist:'', fandom:'',
+  mainColor:'#ff7ab8', subColor:'#8ad7ff',
+  event:'', date:'', city:'',
+  locs:[], budget:0, people:0,
+  style:'', taboo:[],
+  plans:null,
+  activePlan:0,
+
+  reset(){
+    this.artist=''; this.fandom='';
+    this.mainColor='#ff7ab8'; this.subColor='#8ad7ff';
+    this.event=''; this.date=''; this.city='';
+    this.locs=[]; this.budget=0; this.people=0;
+    this.style=''; this.taboo=[];
+    this.plans=null; this.activePlan=0;
+  },
+
+  // 关键槽位完成度
+  slots(){
+    return [
+      { k:'artist', label:'艺人', v:this.artist },
+      { k:'event',  label:'事件', v:this.event },
+      { k:'date',   label:'日期', v:this.date },
+      { k:'city',   label:'城市', v:this.city },
+      { k:'budget', label:'预算', v:this.budget },
+      { k:'people', label:'人数', v:this.people }
+    ];
+  },
+
+  progress(){
+    const filled = this.slots().filter(s => s.v !== '' && s.v !== 0 && s.v != null).length;
+    return { filled, total: 6 };
+  },
+
+  missing(){
+    return this.slots().filter(s => s.v === '' || s.v === 0 || s.v == null).map(s => s.label);
+  },
+
+  ready(){ return this.progress().filled >= 5; },
+
+  snapshot(){
+    return {
+      artist:this.artist, fandom:this.fandom,
+      mainColor:this.mainColor, subColor:this.subColor,
+      event:this.event || '应援', date:this.date, city:this.city || '本地',
+      locs:this.locs.length ? [...this.locs] : ['线上'],
+      budget:this.budget || 3000,
+      people:this.people || 30,
+      style:this.style || '甜美高级',
+      taboo:[...this.taboo]
+    };
+  }
+};
+
+/* =========================================================
+   3. NLU：从自然语言中抽取槽位 & 识别意图
+   ========================================================= */
+const NLU = {
+  extract(text){
+    const out = {};
+    const t = text.trim();
+
+    /* --- 应援色 --- */
+    const hexMatch = t.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/);
+    if(hexMatch){
+      let hex = hexMatch[0];
+      if(hex.length === 4) hex = '#' + hex.slice(1).split('').map(c => c + c).join('');
+      if(/辅色|副色|辅助色|第二色/.test(t)) out.subColor = hex;
+      else out.mainColor = hex;
+    } else {
+      // 中文颜色名
+      const colorWords = Object.keys(COLOR_MAP).sort((a,b) => b.length - a.length);
+      for(const w of colorWords){
+        if(t.includes(w)){
+          const hex = COLOR_MAP[w];
+          if(/辅色|副色|辅助色|第二色/.test(t)) out.subColor = hex;
+          else if(/应援色|主色|主应援色/.test(t) || !State.mainColor) out.mainColor = hex;
+          else out.mainColor = hex;
+          break;
+        }
+      }
+    }
+
+    /* --- 预算 --- */
+    const bm = t.match(/(\d+(?:\.\d+)?)\s*(万|w|W|k|K|千|元|块)/);
+    if(bm){
+      let v = parseFloat(bm[1]);
+      const u = bm[2];
+      if(u === '万' || u === 'w' || u === 'W') v *= 10000;
+      else if(u === 'k' || u === 'K' || u === '千') v *= 1000;
+      if(v >= 100) out.budget = Math.round(v);
+    }
+
+    /* --- 人数 --- */
+    const pm = t.match(/(\d+)\s*(?:个)?\s*(?:人|粉丝|姐妹|宝子)/);
+    if(pm) out.people = Math.max(1, parseInt(pm[1], 10));
+
+    /* --- 日期 --- */
+    const d1 = t.match(/(\d{4})\s*[-\/年]\s*(\d{1,2})\s*[-\/月]\s*(\d{1,2})/);
+    if(d1){
+      out.date = `${d1[1]}-${String(d1[2]).padStart(2,'0')}-${String(d1[3]).padStart(2,'0')}`;
+    } else {
+      const d2 = t.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]/);
+      if(d2){
+        const now = new Date();
+        let y = now.getFullYear();
+        const m = parseInt(d2[1],10), d = parseInt(d2[2],10);
+        const test = new Date(y, m-1, d);
+        if(test < now) y += 1;
+        out.date = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      }
+    }
+
+    /* --- 事件 --- */
+    if(/生日|庆生|过生日/.test(t)) out.event = '生日';
+    else if(/出道周年|周年|纪念日|周年庆/.test(t)) out.event = '出道周年';
+    else if(/回归|打歌|新歌|专辑|comeback/i.test(t)) out.event = '回归/打歌';
+    else if(/演唱会|巡演|现场|concert/i.test(t)) out.event = '演唱会';
+    else if(/毕业|纪念/.test(t)) out.event = '毕业/纪念';
+
+    /* --- 城市 --- */
+    for(const c of CITIES){
+      if(t.includes(c)){ out.city = c; break; }
+    }
+
+    /* --- 地点 --- */
+    const locHits = [];
+    for(const l of LOCATIONS){
+      if(t.includes(l)) locHits.push(l);
+    }
+    // 简写补全
+    if(t.includes('大屏') && !locHits.includes('商圈大屏')) locHits.push('商圈大屏');
+    if(t.includes('地铁') && !locHits.includes('地铁灯箱')) locHits.push('地铁灯箱');
+    if(t.includes('咖啡') && !locHits.includes('咖啡店')) locHits.push('咖啡店');
+    if(t.includes('无人机') && !locHits.includes('无人机')) locHits.push('无人机');
+    if(t.includes('灯光秀') && !locHits.includes('灯光秀')) locHits.push('灯光秀');
+    if(t.includes('场馆') && !locHits.includes('场馆周边')) locHits.push('场馆周边');
+    if(locHits.length) out.locs = locHits;
+
+    /* --- 风格 --- */
+    for(const s of STYLES){
+      if(t.includes(s)){ out.style = s; break; }
+    }
+    if(!out.style){
+      if(/甜美|可爱|少女/.test(t)) out.style = '甜美高级';
+      else if(/酷|暗黑|帅气|飒/.test(t)) out.style = '酷飒暗黑';
+      else if(/简约|清新|干净/.test(t)) out.style = '清新简约';
+      else if(/梦幻|星光|仙/.test(t)) out.style = '梦幻星光';
+      else if(/复古|胶片|怀旧/.test(t)) out.style = '复古胶片';
+    }
+
+    /* --- 禁忌词 --- */
+    const tm = t.match(/(?:禁忌|不要|别用|避免)(?:词|出现|提)?[:：]?\s*([^\s。，,；;]{1,20})/);
+    if(tm){
+      const words = tm[1].split(/[、,，]/).map(s => s.trim()).filter(Boolean);
+      if(words.length) out.taboo = words;
+    }
+
+    /* --- 艺人名 --- */
+    const artist = this.extractArtist(t);
+    if(artist) out.artist = artist;
+
+    /* --- 粉丝名 --- */
+    const fm = t.match(/粉丝名(?:是|叫)?\s*([^\s，,。]{1,10})/);
+    if(fm) out.fandom = fm[1];
+
+    return out;
+  },
+
+  extractArtist(t){
+    // 1. 明确句式："给XX做"、"为XX应援"
+    const m1 = t.match(/(?:给|为|帮|替)\s*([\u4e00-\u9fa5A-Za-z0-9]{1,12}?)\s*(?:做|的|应援|庆|准备|来|搞|弄|策划)/);
+    if(m1 && !this.isNoise(m1[1])) return m1[1].trim();
+
+    // 2. "XX的生日应援"
+    const m2 = t.match(/([\u4e00-\u9fa5A-Za-z0-9]{2,12})\s*的\s*(?:生日|出道|回归|演唱会|周年|毕业|纪念)/);
+    if(m2 && !this.isNoise(m2[1])) return m2[1].trim();
+
+    // 3. "XX生日应援"
+    const m3 = t.match(/([\u4e00-\u9fa5A-Za-z0-9]{2,12})\s*(?:生日|出道周年|回归|演唱会|周年)应援/);
+    if(m3 && !this.isNoise(m3[1])) return m3[1].trim();
+
+    return '';
+  },
+
+  isNoise(w){
+    if(!w) return true;
+    const noise = ['我','你','他','她','我们','他们','大家','粉丝','后援会','应援','方案','帮我',
+      '这个','那个','一下','一个','怎么','如何','什么','生日','出道','回归','演唱会','周年',
+      '预算','颜色','应援色','粉色','蓝色','紫色','红色','绿色','黄色','橙色','白色','黑色'];
+    if(noise.includes(w)) return true;
+    if(w.length < 2) return true;
+    return false;
+  },
+
+  intent(text){
+    const t = text.trim();
+    if(/^(重置|重来|清空|重新开始|reset)$/i.test(t) || /^(重新|重来)/.test(t)) return 'RESET';
+    if(/导出|下载|保存|复制|发给我|给我方案/.test(t)) return 'EXPORT';
+    if(/生成|出方案|做方案|来一套|开始|可以了|没问题|就这样|OK|ok|好 了|好了|走起|安排/.test(t)) return 'GENERATE';
+    if(/改|换|调|变成|更新|设置|调整/.test(t)) return 'MODIFY';
+    return 'CHAT';
+  }
+};
+
+/* =========================================================
+   4. 工具集（Agent 的双手）
+   ========================================================= */
+const Tools = {
+
+  /* --- 工具 1：物料计算器 --- */
+  calc_materials({ budget, people, materialRatio }){
+    const matBudget = budget * materialRatio;
+    let base;
+
+    if(matBudget < 1500){
+      base = [
+        { name:'手幅',     qty: Math.max(10, people) },
+        { name:'贴纸',     qty: Math.max(20, people * 2) },
+        { name:'应援手环', qty: Math.max(10, people) }
+      ];
+    } else if(matBudget < 6000){
+      base = [
+        { name:'手幅',   qty: Math.max(20, people) },
+        { name:'灯牌',   qty: Math.max(5, Math.ceil(people * 0.4)) },
+        { name:'贴纸',   qty: Math.max(30, people * 2) },
+        { name:'杯套',   qty: Math.max(1
